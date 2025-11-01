@@ -1,1 +1,23 @@
-{"occasion":"birthday","giftName":"غريب انا","giftIconPath":"assets/appimage/appimage.jpg","createdByPhone":"01147857132","theme":{"name":"بنفسجي وذهبي","primaryColor":4288423856,"secondaryColor":4286259106,"accentColor":4294956800,"backgroundColor":4294174197},"loginPage":{"recipientName":"غريب انا"},"homePage":{"imagePath":"assets/main/main.jpg"},"messagePage":{"message":"غريب انا\nكل سنة وأنت طيب ❤️\nنتمنى لك يوماً رائعاً ✨"},"createdAt":"2025-11-02T00:37:04.629"}
+{
+  "occasion": "birthday",
+  "giftName": "غالية",
+  "giftIconPath": "assets/appimage/appimage.jpg",
+  "createdByPhone": "01147857132",
+  "theme": {
+    "name": "أزرق وبني",
+    "primaryColor": 4288423858,
+    "secondaryColor": 4286259203,
+    "accentColor": 4294956800,
+    "backgroundColor": 4294967285
+  },
+  "loginPage": {
+    "recipientName": "غالية"
+  },
+  "homePage": {
+    "imagePath": "assets/main/main.jpg"
+  },
+  "messagePage": {
+    "message": "عيد ميلاد سعيد! نتمنى لك يومًا مليئًا بالفرح والسعادة. كل سنة وأنت طيب وبخير. أتمنى أن تتحقق كل أحلامك وأمنياتك. استمتع بيومك الخاص! 🎂🎉"
+  },
+  "createdAt": "2025-11-02T00:37:04.629"
+}
