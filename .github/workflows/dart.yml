@@ -9,72 +9,153 @@ jobs:
   build-android:
     runs-on: ubuntu-latest
     name: Build Android APK
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
+      
       - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
-
+      
       - name: Install Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-
+      
       - name: Install dependencies
         run: flutter pub get
-
+      
+      # 🎯 الجزء الجديد: قراءة config.json وتعديل التطبيق
+      - name: Read config.json and update app
+        id: read_config
+        run: |
+          # قراءة اسم التطبيق من config.json
+          APP_NAME=$(cat assets/config.json | jq -r '.app_name')
+          USER_PHONE=$(cat assets/config.json | jq -r '.user_phone')
+          RECIPIENT_NAME=$(cat assets/config.json | jq -r '.recipient_name')
+          
+          echo "app_name=$APP_NAME" >> $GITHUB_OUTPUT
+          echo "user_phone=$USER_PHONE" >> $GITHUB_OUTPUT
+          echo "recipient_name=$RECIPIENT_NAME" >> $GITHUB_OUTPUT
+          
+          echo "📱 App Name: $APP_NAME"
+          echo "📞 Phone: $USER_PHONE"
+          echo "👤 Recipient: $RECIPIENT_NAME"
+          
+          # تحديث اسم التطبيق في Android
+          sed -i "s/android:label=\"[^\"]*\"/android:label=\"$APP_NAME\"/g" android/app/src/main/AndroidManifest.xml
+          
+          # تحديث اسم التطبيق في iOS
+          sed -i "s/<key>CFBundleDisplayName<\/key>[[:space:]]*<string>[^<]*<\/string>/<key>CFBundleDisplayName<\/key>\n\t<string>$APP_NAME<\/string>/g" ios/Runner/Info.plist
+          
+          echo "✅ تم تحديث اسم التطبيق بنجاح"
+      
+      # 🎨 تحديث أيقونة التطبيق (اختياري)
+      - name: Update App Icon
+        run: |
+          # تحقق من وجود أيقونة مخصصة
+          if [ -f "assets/icons/app_icon.png" ]; then
+            echo "🎨 وجدت أيقونة مخصصة، جاري التحديث..."
+            
+            # إضافة flutter_launcher_icons للـ pubspec.yaml إذا لم يكن موجوداً
+            if ! grep -q "flutter_launcher_icons" pubspec.yaml; then
+              cat >> pubspec.yaml << EOF
+          
+          flutter_launcher_icons:
+            android: true
+            ios: true
+            image_path: "assets/icons/app_icon.png"
+            adaptive_icon_background: "#FFFFFF"
+            adaptive_icon_foreground: "assets/icons/app_icon.png"
+          EOF
+            fi
+            
+            # تنصيب وتشغيل flutter_launcher_icons
+            flutter pub add dev:flutter_launcher_icons
+            flutter pub get
+            flutter pub run flutter_launcher_icons
+            
+            echo "✅ تم تحديث الأيقونة بنجاح"
+          else
+            echo "⚠️ لم يتم العثور على أيقونة مخصصة في assets/icons/app_icon.png"
+          fi
+      
       - name: Build APK
         run: flutter build apk --release
-
-      - name: Read APK name from name.txt
-        id: read_apk_name
+      
+      - name: Prepare APK with custom name
+        id: prepare_apk
         run: |
-          APK_NAME=$(cat assets/app/name.txt)
+          # إنشاء اسم الـ APK: app_name_user_phone
+          APP_NAME="${{ steps.read_config.outputs.app_name }}"
+          USER_PHONE="${{ steps.read_config.outputs.user_phone }}"
+          
+          # تنظيف الاسم (إزالة المسافات فقط، الاحتفاظ بالعربي والأرقام)
+          CLEAN_APP_NAME=$(echo "$APP_NAME" | sed 's/ /_/g')
+          APK_NAME="${CLEAN_APP_NAME}_${USER_PHONE}.apk"
+          
           echo "apk_name=$APK_NAME" >> $GITHUB_OUTPUT
-
-      - name: Rename APK and move to apk_release/
-        run: |
+          echo "📦 APK Name: $APK_NAME"
+          
+          # نسخ الـ APK
           mkdir -p apk_release
-          cp build/app/outputs/flutter-apk/app-release.apk apk_release/${{ steps.read_apk_name.outputs.apk_name }}.apk
-
+          cp build/app/outputs/flutter-apk/app-release.apk "apk_release/$APK_NAME"
+      
       - name: Upload APK as artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: apk_release/${{ steps.read_apk_name.outputs.apk_name }}.apk
-
+          path: apk_release/${{ steps.prepare_apk.outputs.apk_name }}
+  
   create-release:
     runs-on: ubuntu-latest
     needs: [build-android]
     name: Create GitHub Release
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Read APK name from name.txt
-        id: read_apk_name
+      
+      - name: Read config for release info
+        id: read_config
         run: |
-          APK_NAME=$(cat assets/app/name.txt)
-          echo "apk_name=$APK_NAME" >> $GITHUB_OUTPUT
-
+          APP_NAME=$(cat assets/config.json | jq -r '.app_name')
+          USER_PHONE=$(cat assets/config.json | jq -r '.user_phone')
+          RECIPIENT_NAME=$(cat assets/config.json | jq -r '.recipient_name')
+          OCCASION=$(cat assets/config.json | jq -r '.occasion')
+          
+          echo "app_name=$APP_NAME" >> $GITHUB_OUTPUT
+          echo "user_phone=$USER_PHONE" >> $GITHUB_OUTPUT
+          echo "recipient_name=$RECIPIENT_NAME" >> $GITHUB_OUTPUT
+          echo "occasion=$OCCASION" >> $GITHUB_OUTPUT
+      
       - name: Download Android APK
         uses: actions/download-artifact@v4
         with:
           name: android-apk
           path: release/
-
+      
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          name: "Mobile App Release v1.0.${{ github.run_number }}"
+          name: "${{ steps.read_config.outputs.app_name }}_${{ steps.read_config.outputs.user_phone }}"
           tag_name: "v1.0.${{ github.run_number }}"
+          body: |
+            🎁 **${{ steps.read_config.outputs.app_name }}**
+            
+            📞 رقم الهاتف: ${{ steps.read_config.outputs.user_phone }}
+            👤 المستلم: ${{ steps.read_config.outputs.recipient_name }}
+            🎉 المناسبة: ${{ steps.read_config.outputs.occasion }}
+            📅 تاريخ البناء: ${{ github.event.head_commit.timestamp }}
+            
+            ---
+            
+            ### 📱 تحميل التطبيق:
+            قم بتحميل ملف APK أدناه وتثبيته على جهاز Android
+            
+            ✨ Made with Love
           files: |
-            release/${{ steps.read_apk_name.outputs.apk_name }}.apk
+            release/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
