@@ -92,22 +92,26 @@ jobs:
           APP_NAME="${{ steps.read_config.outputs.app_name }}"
           USER_PHONE="${{ steps.read_config.outputs.user_phone }}"
           
-          # تنظيف الاسم (إزالة المسافات فقط، الاحتفاظ بالعربي والأرقام)
+          # تنظيف الاسم (إزالة المسافات فقط، الاحتفاظ بالعربي والإنجليزي والأرقام)
           CLEAN_APP_NAME=$(echo "$APP_NAME" | sed 's/ /_/g')
           APK_NAME="${CLEAN_APP_NAME}_${USER_PHONE}.apk"
           
           echo "apk_name=$APK_NAME" >> $GITHUB_OUTPUT
           echo "📦 APK Name: $APK_NAME"
           
-          # نسخ الـ APK
+          # نسخ الـ APK مع التأكد من الـ encoding الصحيح
           mkdir -p apk_release
           cp build/app/outputs/flutter-apk/app-release.apk "apk_release/$APK_NAME"
+          
+          # التأكد من أن الملف موجود
+          ls -lah "apk_release/"
       
       - name: Upload APK as artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: apk_release/${{ steps.prepare_apk.outputs.apk_name }}
+          path: apk_release/
+          if-no-files-found: error
   
   create-release:
     runs-on: ubuntu-latest
@@ -136,6 +140,11 @@ jobs:
           name: android-apk
           path: release/
       
+      - name: List files for debugging
+        run: |
+          echo "📂 Files in release folder:"
+          ls -lah release/
+          
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v1
         with:
@@ -155,7 +164,6 @@ jobs:
             قم بتحميل ملف APK أدناه وتثبيته على جهاز Android
             
             ✨ Made with Love
-          files: |
-            release/*.apk
+          files: release/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
